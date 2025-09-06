@@ -1,0 +1,121 @@
+wufik.sh is Windows USB Flash Installer Kreator
+
+Usage:
+  $ sudo bash wufik.sh windows_install.iso /dev/usb_drive
+
+=====
+
+Task that wufik solves is that while in EFI-compatible PCs creating of Windows
+installation flash is as simple as `dd win_install.iso /dev/sdb` (EFI finds and
+boot NTLDR by self), on legacy BIOS PCs we need to have some external bootloader
+to boot installer.
+
+So here are steps to create such flash drive using GRUB2, and wufik automates it.
+
+First of all, part a flash drive (at least 8Gb drive):
+- one small bootable partition for GRUB files
+- second partition for Windows installer files
+
+sdb is a name of USB device here.
+
+=====
+
+$ sudo cfdisk -z /dev/sdb
+                            ┌ Select label type ───┐
+                            │ gpt                  │
+select dos (MBR) type here->│ dos                  │
+                            │ sgi                  │
+                            │ sun                  │
+                            └──────────────────────┘
+=====
+
+Create two primary partitions:
+1. 100M is enough for GRUB but I've created 500M there. Type of partition is
+Linux (83). Then mark this partition as Bootable.
+2. The rest of device. Change type of this partition to HPHS/NTFS/exFAT (7).
+Windows 7 installation media doesn't have files bigger then 4Gb so type FAT32(b)
+can be used for this partition. But 8, 10, 11, etc Windowses have big files so
+NTFS is a relevant choice.
+
+
+    Device       Boot      Start       End   Sectors   Size  Id Type
+>>  /dev/sdb1    *          2048   1026047   1024000   500M  83 Linux           
+    /dev/sdb2            1024048  15124991  14100944   6.7G   7 HPFS/NTFS/exFAT
+
+
+ ┌────────────────────────────────────────────────────────────────────────────┐
+ │Partition type: Linux (83)                                                  │
+ │   Attributes : 80                                                          │
+ └────────────────────────────────────────────────────────────────────────────┘
+     [Bootable]  [ Delete ]  [ Resize ]  [  Quit  ]  [  Type  ]  [  Help  ]
+     [  Write ]  [  Dump  ]
+
+
+Write chages to disk and quit.
+
+=====
+
+Next format this partitions:
+
+$ sudo mkfs.ext4 /dev/sdb1
+ ....
+$ sudo mkfs.ntfs -f /dev/sdb2
+ ....
+ 
+=====
+
+Next step is to install GRUB2 to USB flash. We also need to specify a directory
+where GRUB2 files and modules will be located.
+
+Let's mount sdb1 to /mnt 
+$ sudo mount /dev/sdb1 /mnt
+
+Then install GRUB2. Name of command "grub2-install" can differ in a different
+distributions. grub-install is a second candidate to try. Also check /usr/sbin
+for variants.
+
+$ sudo grub2-install --boot-directory=/mnt /dev/sdb
+
+=====
+
+Create really small config file /mnt/grub2/grub.cfg
+
+menuentry Windows {
+	set root=(hd0,msdos2)
+	ntldr /bootmgr
+	boot
+}
+
+hd0 is a name of boot device here (USB flash).
+msdos2 is a name of second partition on this device.
+
+=====
+
+Last step is to copy all files from Windows installation media to prepared
+partition.
+
+Unmount sdb1 first
+$ sudo umount /dev/sdb1
+
+Mount NTFS partition
+$ sudo mount /dev/sdb2 /mnt
+
+Mount Windows .iso image.
+$ sudo mkdir /winiso
+$ sudo mount ~/Windows-install.iso /winiso
+
+Copy all of this and clean
+$ sudo cp -r /winiso/* /mnt
+$ sync
+$ sudo umount /mnt
+$ sudo umount /winiso
+$ sudo rmdir /winiso
+
+Note that you can use this flash drive to boot any Windows install. Just remove
+installation files from second partition and copy another.
+
+=====
+
+References:
+https://willhaley.com/blog/windows-installer-usb-linux
+https://askubuntu.com/questions/367011/boot-windows-7-iso-from-grub2
