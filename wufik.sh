@@ -23,6 +23,12 @@ then
   exit 1
 fi
 
+if [ "$(mount | grep $usb)" ]
+then
+  echo "Error: drive $usb is mounted."
+  exit 1
+fi
+
 if [ "$(id -u)" != "0" ]
 then
   echo 'You must have root privileges to use this.'

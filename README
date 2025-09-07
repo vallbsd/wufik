@@ -1,7 +1,7 @@
-wufik.sh is Windows USB Flash Installer Kreator
+wufik.sh is Windows USB Flash Installer Kreator.
 
 Usage:
-  $ sudo bash wufik.sh windows_install.iso /dev/usb_drive
+$ sudo bash wufik.sh windows_install.iso /dev/usb_drive
 
 =====
 
